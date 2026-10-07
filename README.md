@@ -1,17 +1,17 @@
-# [Titlul proiectului]
+# Agenda de contacte
 
 Proiect individual la disciplina Metode avansate de programare, anul universitar 2026-2027.
 
 ## Autor
 
-- **Nume:** [Nume Prenume]
-- **Grupa:** [grupa]
-- **Marca:** [marca]
-- **Tema:** [numarul temei] - [titlul temei]
+- **Nume:** Marian Vitalie
+- **Grupa:** 1.2
+- **Marca:** 715739
+- **Tema:** 1 - Agenda de contacte
 
 ## Descriere
 
-[Doua-trei propozitii despre ce face aplicatia si ce problema rezolva.]
+Serviciu web care gestionează o agendă de contacte. Permite adăugarea de contacte cu nume, email, telefon și categorie, căutarea după nume, filtrarea pe categorie, ștergerea și statistici pe categorii. Datele sunt validate la intrare, iar emailul este unic, indiferent de majuscule sau minuscule. Aplicația este scrisă în Python cu Flask, rulează într-un container Docker și este testată automat prin GitHub Actions.
 
 ## Tehnologii
 
@@ -46,8 +46,14 @@ python -m pytest --cov=src
 | `/version` | GET | Versiunea si commit-ul din care a fost construita imaginea |
 | `/` | GET | Pagina de prezentare |
 | `/reset` | POST | Goleste datele din memorie |
-| [ruta temei] | [metoda] | [descriere] |
+| `/contacts` | POST | Adauga un contact |
+| `/contacts` | GET | Listeaza contactele, cu filtrare dupa categorie si cautare dupa nume |
+| `/contacts/{id}` | GET | Intoarce un contact sau 404 |
+| `/contacts/{id}` | DELETE | Sterge un contact |
+| `/stats` | GET | Numarul total de contacte si numarul pe categorii |
 
 ## Decizii de implementare
 
-[Doua-trei decizii tehnice pe care le-ati luat si motivul fiecareia.]
+- Datele sunt păstrate în memorie, într-un dicționar, pentru că enunțul nu cere persistență, iar soluția rămâne simplă și ușor de testat.
+- Emailul se compară normalizat (litere mici), dar se păstrează forma scrisă de utilizator, pentru ca unicitatea să nu depindă de majuscule.
+- Validarea se face într-o funcție separată de rute, ca să poată fi testată direct.
