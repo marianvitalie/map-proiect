@@ -1,6 +1,6 @@
 import pytest
 
-from src.app import APP_NAME, app, store
+from src.app import APP_NAME, app, store, validate_contact
 
 
 @pytest.fixture
@@ -51,3 +51,115 @@ def test_unknown_route_returns_not_found(client):
     response = client.get("/does-not-exist")
     assert response.status_code == 404
     assert response.get_json()["error"] == "not_found"
+
+
+def test_validate_contact_valid():
+    valid_data = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    assert validate_contact(valid_data) is None
+
+    # Cu prefix '+' la telefon
+    valid_with_plus = dict(valid_data, phone="+0722334455")
+    assert validate_contact(valid_with_plus) is None
+
+    # Nume cu lungime la limita superioara (L = 50)
+    valid_limit_name = dict(valid_data, name="A" * 50)
+    assert validate_contact(valid_limit_name) is None
+
+
+def test_validate_contact_missing_fields():
+    data = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    for field in ("name", "email", "phone", "category"):
+        incomplete = dict(data)
+        del incomplete[field]
+        err = validate_contact(incomplete)
+        assert err is not None
+        assert f"Missing required field: '{field}'" in err
+
+
+def test_validate_contact_invalid_name():
+    base = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    # Sir gol
+    assert validate_contact(dict(base, name="")) is not None
+    # Doar spatii albe
+    assert validate_contact(dict(base, name="   ")) is not None
+    # Peste limita de L=50 caractere (51 caractere)
+    assert validate_contact(dict(base, name="A" * 51)) is not None
+    # Tip greșit (nu este șir de caractere)
+    assert validate_contact(dict(base, name=123)) is not None
+
+
+def test_validate_contact_invalid_email():
+    base = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    # Fara @
+    assert validate_contact(dict(base, email="anaexample.com")) is not None
+    # Doua @
+    assert validate_contact(dict(base, email="ana@@example.com")) is not None
+    # Fara text inainte de @
+    assert validate_contact(dict(base, email="@example.com")) is not None
+    # Fara punct dupa @
+    assert validate_contact(dict(base, email="ana@examplecom")) is not None
+    # Tip greșit
+    assert validate_contact(dict(base, email=None)) is not None
+
+
+def test_validate_contact_invalid_phone():
+    base = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    # 9 cifre (prea scurt)
+    assert validate_contact(dict(base, phone="072233445")) is not None
+    # 11 cifre (prea lung)
+    assert validate_contact(dict(base, phone="07223344555")) is not None
+    # Contine litere
+    assert validate_contact(dict(base, phone="072233445a")) is not None
+    # Semnul '+' in interior
+    assert validate_contact(dict(base, phone="0722+33445")) is not None
+    # Semnul '+' dublu
+    assert validate_contact(dict(base, phone="++0722334455")) is not None
+    # Tip greșit (număr în loc de șir)
+    assert validate_contact(dict(base, phone=722334455)) is not None
+
+
+def test_validate_contact_invalid_category():
+    base = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    # Categorie inexistenta
+    assert validate_contact(dict(base, category="unknown")) is not None
+    # Categorie scrisa gresit sau goala
+    assert validate_contact(dict(base, category="")) is not None
+    # Tip greșit
+    assert validate_contact(dict(base, category=12)) is not None
+
+
+def test_validate_contact_invalid_payload_type():
+    assert validate_contact(None) is not None
+    assert validate_contact(["not", "a", "dict"]) is not None
+    assert validate_contact("string") is not None
+

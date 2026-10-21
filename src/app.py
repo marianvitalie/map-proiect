@@ -17,6 +17,47 @@ STARTED_AT = time.monotonic()
 app = Flask(__name__)
 
 
+VALID_CATEGORIES = {"family", "friends", "work", "other"}
+MAX_NAME_LENGTH = 50
+
+
+def validate_contact(data: dict) -> str | None:
+    """Validates contact fields according to specification rules.
+
+    Returns an error message string if invalid, or None if valid.
+    """
+    if not isinstance(data, dict):
+        return "Invalid payload, must be a JSON object"
+
+    for field in ("name", "email", "phone", "category"):
+        if field not in data:
+            return f"Missing required field: '{field}'"
+
+    name = data["name"]
+    if not isinstance(name, str) or not (1 <= len(name.strip()) and len(name) <= MAX_NAME_LENGTH):
+        return f"'name' must be a non-empty string with at most {MAX_NAME_LENGTH} characters"
+
+    email = data["email"]
+    if not isinstance(email, str) or email.count("@") != 1:
+        return "'email' must be a string containing exactly one '@'"
+    before_at, after_at = email.split("@", 1)
+    if not before_at.strip() or "." not in after_at:
+        return "'email' must have text before '@' and at least one '.' after"
+
+    phone = data["phone"]
+    if not isinstance(phone, str):
+        return "'phone' must be a string of exactly 10 digits (optionally prefixed by '+')"
+    digits = phone[1:] if phone.startswith("+") else phone
+    if len(digits) != 10 or not digits.isdigit():
+        return "'phone' must contain exactly 10 digits (optionally preceded by '+')"
+
+    category = data["category"]
+    if not isinstance(category, str) or category not in VALID_CATEGORIES:
+        return f"'category' must be one of: {', '.join(sorted(VALID_CATEGORIES))}"
+
+    return None
+
+
 class Store:
     """Holds the application data in memory.
 
