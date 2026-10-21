@@ -7,7 +7,7 @@ Add the routes required by your assigned theme in this file or in separate modul
 import os
 import time
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 APP_NAME = "map-project"
 APP_VERSION = "0.1.0"
@@ -70,10 +70,40 @@ class Store:
 
     def reset(self) -> None:
         self.next_id = 1
-        # example: self.contacts = {}
+        self.contacts: dict[int, dict] = {}
 
 
 store = Store()
+
+
+@app.post("/contacts")
+def create_contact():
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify(error="validation", message="Request body must be valid JSON"), 400
+
+    error = validate_contact(data)
+    if error:
+        return jsonify(error="validation", message=error), 400
+
+    email_to_check = data["email"].strip().lower()
+    for existing in store.contacts.values():
+        if existing["email"].strip().lower() == email_to_check:
+            return jsonify(error="conflict", message="A contact with this email already exists"), 409
+
+    contact_id = store.next_id
+    store.next_id += 1
+
+    contact = {
+        "id": contact_id,
+        "name": data["name"],
+        "email": data["email"],
+        "phone": data["phone"],
+        "category": data["category"],
+    }
+    store.contacts[contact_id] = contact
+
+    return jsonify(contact), 201
 
 
 @app.get("/health")

@@ -37,8 +37,10 @@ def test_reset_rejects_get(client):
 
 def test_reset_clears_store(client):
     store.next_id = 42
+    store.contacts[1] = {"id": 1, "name": "Test"}
     client.post("/reset")
     assert store.next_id == 1
+    assert store.contacts == {}
 
 
 def test_home_returns_html(client):
@@ -162,4 +164,78 @@ def test_validate_contact_invalid_payload_type():
     assert validate_contact(None) is not None
     assert validate_contact(["not", "a", "dict"]) is not None
     assert validate_contact("string") is not None
+
+
+def test_create_contact_success(client):
+    client.post("/reset")
+    c1 = {
+        "name": "Ana Pop",
+        "email": "ana@example.com",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    r1 = client.post("/contacts", json=c1)
+    assert r1.status_code == 201
+    body1 = r1.get_json()
+    assert body1["id"] == 1
+    assert body1["name"] == c1["name"]
+    assert body1["email"] == c1["email"]
+    assert body1["phone"] == c1["phone"]
+    assert body1["category"] == c1["category"]
+
+    c2 = {
+        "name": "Dan Ionescu",
+        "email": "dan@example.com",
+        "phone": "+0733112233",
+        "category": "friends",
+    }
+    r2 = client.post("/contacts", json=c2)
+    assert r2.status_code == 201
+    body2 = r2.get_json()
+    assert body2["id"] == 2
+
+
+def test_create_contact_duplicate_email_conflict(client):
+    client.post("/reset")
+    c1 = {
+        "name": "Ana Pop",
+        "email": "Ana@Example.COM",
+        "phone": "0722334455",
+        "category": "work",
+    }
+    r1 = client.post("/contacts", json=c1)
+    assert r1.status_code == 201
+
+    c2 = {
+        "name": "Ana P.",
+        "email": "ana@example.com",
+        "phone": "0733445566",
+        "category": "friends",
+    }
+    r2 = client.post("/contacts", json=c2)
+    assert r2.status_code == 409
+    body2 = r2.get_json()
+    assert body2["error"] == "conflict"
+    assert "already exists" in body2["message"].lower()
+
+
+def test_create_contact_validation_failure(client):
+    client.post("/reset")
+    # Câmp lipsă
+    r1 = client.post(
+        "/contacts",
+        json={"name": "Test", "email": "test@example.com", "phone": "0711223344"},
+    )
+    assert r1.status_code == 400
+    assert r1.get_json()["error"] == "validation"
+
+    # Non-JSON body
+    r2 = client.post(
+        "/contacts",
+        data="not a json string",
+        content_type="application/json",
+    )
+    assert r2.status_code == 400
+    assert r2.get_json()["error"] == "validation"
+
 
