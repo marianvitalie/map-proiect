@@ -1,5 +1,7 @@
 # Agenda de contacte
 
+![CI](https://github.com/marianvitalie/map-proiect/actions/workflows/ci.yml/badge.svg)
+
 Proiect individual la disciplina Metode avansate de programare, anul universitar 2026-2027.
 
 ## Autor
