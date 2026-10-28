@@ -106,6 +106,24 @@ def create_contact():
     return jsonify(contact), 201
 
 
+@app.get("/contacts")
+def list_contacts():
+    category_filter = request.args.get("category")
+    query_filter = request.args.get("q")
+
+    results = list(store.contacts.values())
+
+    if category_filter:
+        results = [c for c in results if c["category"] == category_filter]
+
+    if query_filter:
+        q_lower = query_filter.lower()
+        results = [c for c in results if q_lower in c["name"].lower()]
+
+    results.sort(key=lambda c: (c["name"], c["id"]))
+    return jsonify(results), 200
+
+
 @app.get("/health")
 def health():
     return jsonify(

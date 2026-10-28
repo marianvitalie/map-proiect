@@ -239,3 +239,74 @@ def test_create_contact_validation_failure(client):
     assert r2.get_json()["error"] == "validation"
 
 
+def test_list_contacts_empty(client):
+    client.post("/reset")
+    response = client.get("/contacts")
+    assert response.status_code == 200
+    assert response.get_json() == []
+
+
+def test_list_contacts_sorted_by_name(client):
+    client.post("/reset")
+    client.post("/contacts", json={"name": "Vasile", "email": "v@example.com", "phone": "0711111111", "category": "work"})
+    client.post("/contacts", json={"name": "Ana", "email": "a@example.com", "phone": "0722222222", "category": "friends"})
+    client.post("/contacts", json={"name": "Dan", "email": "d@example.com", "phone": "0733333333", "category": "family"})
+
+    response = client.get("/contacts")
+    assert response.status_code == 200
+    names = [c["name"] for c in response.get_json()]
+    assert names == ["Ana", "Dan", "Vasile"]
+
+
+def test_list_contacts_tie_breaker_by_id(client):
+    client.post("/reset")
+    client.post("/contacts", json={"name": "Ana Pop", "email": "ana1@example.com", "phone": "0711111111", "category": "work"})
+    client.post("/contacts", json={"name": "Ana Pop", "email": "ana2@example.com", "phone": "0722222222", "category": "friends"})
+
+    response = client.get("/contacts")
+    assert response.status_code == 200
+    ids = [c["id"] for c in response.get_json()]
+    assert ids == [1, 2]
+
+
+def test_list_contacts_filter_by_category(client):
+    client.post("/reset")
+    client.post("/contacts", json={"name": "Ana", "email": "ana@example.com", "phone": "0711111111", "category": "work"})
+    client.post("/contacts", json={"name": "Dan", "email": "dan@example.com", "phone": "0722222222", "category": "friends"})
+
+    response = client.get("/contacts?category=work")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Ana"
+    assert data[0]["category"] == "work"
+
+
+def test_list_contacts_search_by_name_case_insensitive(client):
+    client.post("/reset")
+    client.post("/contacts", json={"name": "Ana Pop", "email": "ana@example.com", "phone": "0711111111", "category": "work"})
+    client.post("/contacts", json={"name": "Roxana Ionescu", "email": "roxana@example.com", "phone": "0722222222", "category": "work"})
+    client.post("/contacts", json={"name": "Dan Ilie", "email": "dan@example.com", "phone": "0733333333", "category": "friends"})
+
+    # Căutare 'ana' (litere mici) trebuie să găsească 'Ana Pop' și 'Roxana Ionescu'
+    response = client.get("/contacts?q=ana")
+    assert response.status_code == 200
+    names = [c["name"] for c in response.get_json()]
+    assert names == ["Ana Pop", "Roxana Ionescu"]
+
+
+def test_list_contacts_combined_filter_and_search(client):
+    client.post("/reset")
+    client.post("/contacts", json={"name": "Ana Pop", "email": "ana@example.com", "phone": "0711111111", "category": "work"})
+    client.post("/contacts", json={"name": "Roxana", "email": "roxana@example.com", "phone": "0722222222", "category": "friends"})
+    client.post("/contacts", json={"name": "Mihai", "email": "mihai@example.com", "phone": "0733333333", "category": "work"})
+
+    # Se cer ambele: category=work și q=ana -> doar 'Ana Pop'
+    response = client.get("/contacts?category=work&q=ana")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Ana Pop"
+
+
+
