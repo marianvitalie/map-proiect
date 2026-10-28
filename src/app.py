@@ -124,6 +124,22 @@ def list_contacts():
     return jsonify(results), 200
 
 
+@app.get("/contacts/<int:contact_id>")
+def get_contact(contact_id: int):
+    contact = store.contacts.get(contact_id)
+    if contact is None:
+        return jsonify(error="not_found", message="Contact not found"), 404
+    return jsonify(contact), 200
+
+
+@app.delete("/contacts/<int:contact_id>")
+def delete_contact(contact_id: int):
+    if contact_id not in store.contacts:
+        return jsonify(error="not_found", message="Contact not found"), 404
+    del store.contacts[contact_id]
+    return "", 204
+
+
 @app.get("/health")
 def health():
     return jsonify(

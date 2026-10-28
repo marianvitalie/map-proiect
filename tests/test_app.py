@@ -309,4 +309,50 @@ def test_list_contacts_combined_filter_and_search(client):
     assert data[0]["name"] == "Ana Pop"
 
 
+def test_get_contact_by_id_success(client):
+    client.post("/reset")
+    c = {"name": "Ana Pop", "email": "ana@example.com", "phone": "0711111111", "category": "work"}
+    created = client.post("/contacts", json=c).get_json()
+
+    response = client.get(f"/contacts/{created['id']}")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["id"] == created["id"]
+    assert body["name"] == "Ana Pop"
+    assert body["email"] == "ana@example.com"
+
+
+def test_get_contact_by_id_not_found(client):
+    client.post("/reset")
+    response = client.get("/contacts/999")
+    assert response.status_code == 404
+    body = response.get_json()
+    assert body["error"] == "not_found"
+    assert "not found" in body["message"].lower()
+
+
+def test_delete_contact_success(client):
+    client.post("/reset")
+    c = {"name": "Ana Pop", "email": "ana@example.com", "phone": "0711111111", "category": "work"}
+    created = client.post("/contacts", json=c).get_json()
+
+    # Stergerea trebuie sa intoarca 204 FARA corp
+    del_res = client.delete(f"/contacts/{created['id']}")
+    assert del_res.status_code == 204
+    assert del_res.data == b""
+
+    # Un GET ulterior pe acel id trebuie sa intoarca 404
+    get_res = client.get(f"/contacts/{created['id']}")
+    assert get_res.status_code == 404
+
+
+def test_delete_contact_not_found(client):
+    client.post("/reset")
+    response = client.delete("/contacts/999")
+    assert response.status_code == 404
+    body = response.get_json()
+    assert body["error"] == "not_found"
+
+
+
 
