@@ -140,6 +140,20 @@ def delete_contact(contact_id: int):
     return "", 204
 
 
+@app.get("/stats")
+def get_stats():
+    by_category = {cat: 0 for cat in sorted(VALID_CATEGORIES)}
+    for contact in store.contacts.values():
+        cat = contact.get("category")
+        if cat in by_category:
+            by_category[cat] += 1
+
+    return jsonify(
+        total=len(store.contacts),
+        by_category=by_category,
+    ), 200
+
+
 @app.get("/health")
 def health():
     return jsonify(

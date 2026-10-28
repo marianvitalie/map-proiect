@@ -354,5 +354,53 @@ def test_delete_contact_not_found(client):
     assert body["error"] == "not_found"
 
 
+def test_stats_empty(client):
+    client.post("/reset")
+    response = client.get("/stats")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["total"] == 0
+    assert body["by_category"] == {
+        "family": 0,
+        "friends": 0,
+        "other": 0,
+        "work": 0,
+    }
+
+
+def test_stats_populated(client):
+    client.post("/reset")
+    client.post("/contacts", json={"name": "Ana", "email": "ana@example.com", "phone": "0711111111", "category": "work"})
+    client.post("/contacts", json={"name": "Dan", "email": "dan@example.com", "phone": "0722222222", "category": "work"})
+    client.post("/contacts", json={"name": "Mihai", "email": "mihai@example.com", "phone": "0733333333", "category": "friends"})
+    client.post("/contacts", json={"name": "Elena", "email": "elena@example.com", "phone": "0744444444", "category": "family"})
+
+    response = client.get("/stats")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["total"] == 4
+    assert body["by_category"]["work"] == 2
+    assert body["by_category"]["friends"] == 1
+    assert body["by_category"]["family"] == 1
+    assert body["by_category"]["other"] == 0
+
+
+def test_stats_after_delete(client):
+    client.post("/reset")
+    c1 = client.post("/contacts", json={"name": "Ana", "email": "ana@example.com", "phone": "0711111111", "category": "work"}).get_json()
+    client.post("/contacts", json={"name": "Dan", "email": "dan@example.com", "phone": "0722222222", "category": "friends"})
+
+    # Inainte de stergere: total 2
+    assert client.get("/stats").get_json()["total"] == 2
+
+    # Dupa stergerea contactului 'Ana' (work): total devine 1, work devine 0
+    client.delete(f"/contacts/{c1['id']}")
+    body = client.get("/stats").get_json()
+    assert body["total"] == 1
+    assert body["by_category"]["work"] == 0
+    assert body["by_category"]["friends"] == 1
+
+
+
 
 
