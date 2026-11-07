@@ -401,6 +401,170 @@ def test_stats_after_delete(client):
     assert body["by_category"]["friends"] == 1
 
 
+def test_official_theme_sequence(client):
+    """Verifica exact secventa de comenzi din enuntul oficial al Temei 1."""
+    # Reset initial obligatoriu
+    assert client.post("/reset").status_code == 204
+
+    # 1. Adaugati un contact (Ana Pop, ana@example.com, work) -> 201 Created si id 1
+    r1 = client.post(
+        "/contacts",
+        json={
+            "name": "Ana Pop",
+            "email": "ana@example.com",
+            "phone": "0722334455",
+            "category": "work",
+        },
+    )
+    assert r1.status_code == 201
+    b1 = r1.get_json()
+    assert b1["id"] == 1
+    assert b1["name"] == "Ana Pop"
+    assert b1["email"] == "ana@example.com"
+
+    # 2. Acelasi email, scris altfel -> 409 Conflict, nu 201
+    r2 = client.post(
+        "/contacts",
+        json={
+            "name": "Ana P.",
+            "email": "Ana@Example.COM",
+            "phone": "0733445566",
+            "category": "friends",
+        },
+    )
+    assert r2.status_code == 409
+    assert r2.get_json()["error"] == "conflict"
+
+    # 3. Cautare si filtru in aceeasi cerere -> se aplica amandoua
+    r3 = client.get("/contacts?category=work&q=ana")
+    assert r3.status_code == 200
+    b3 = r3.get_json()
+    assert len(b3) == 1
+    assert b3[0]["id"] == 1
+    assert b3[0]["name"] == "Ana Pop"
+
+    # 4. Un id inexistent -> 404, cu error "not_found"
+    r4 = client.get("/contacts/999")
+    assert r4.status_code == 404
+    assert r4.get_json()["error"] == "not_found"
+
+
+def test_email_preserves_case_but_normalizes_comparison(client):
+    """Emailul pastreaza caracterele originale la afisare, dar se compara normalizat."""
+    client.post("/reset")
+    user_email = "Marian.Vitalie@Example.COM"
+    r = client.post(
+        "/contacts",
+        json={
+            "name": "Vitalie Marian",
+            "email": user_email,
+            "phone": "0799887766",
+            "category": "other",
+        },
+    )
+    assert r.status_code == 201
+    cid = r.get_json()["id"]
+
+    # Verificam ca la citire forma originala a fost pastrata intacta
+    fetched = client.get(f"/contacts/{cid}").get_json()
+    assert fetched["email"] == user_email
+
+    # Orice alta varianta de casing trebuie respinsa cu 409
+    assert client.post(
+        "/contacts",
+        json={
+            "name": "Alt Nume",
+            "email": "marian.vitalie@example.com",
+            "phone": "0711223344",
+            "category": "friends",
+        },
+    ).status_code == 409
+
+
+def test_delete_contact_twice_returns_404(client):
+    """O a doua stergere pe aceeasi resursa trebuie sa esueze cu 404."""
+    client.post("/reset")
+    r = client.post(
+        "/contacts",
+        json={
+            "name": "Ion",
+            "email": "ion@example.com",
+            "phone": "0711111111",
+            "category": "friends",
+        },
+    )
+    cid = r.get_json()["id"]
+
+    # Prima stergere reuseste (204)
+    assert client.delete(f"/contacts/{cid}").status_code == 204
+
+    # A doua stergere esueaza (404)
+    r2 = client.delete(f"/contacts/{cid}")
+    assert r2.status_code == 404
+    assert r2.get_json()["error"] == "not_found"
+
+
+def test_list_contacts_no_matches_returns_empty_list(client):
+    """Daca filtrele nu gasesc nimic, raspunsul este o lista goala cu codul 200."""
+    client.post("/reset")
+    client.post(
+        "/contacts",
+        json={
+            "name": "George",
+            "email": "george@example.com",
+            "phone": "0722334455",
+            "category": "work",
+        },
+    )
+
+    r1 = client.get("/contacts?q=cineva_care_nu_exista")
+    assert r1.status_code == 200
+    assert r1.get_json() == []
+
+    r2 = client.get("/contacts?category=family")
+    assert r2.status_code == 200
+    assert r2.get_json() == []
+
+
+def test_reset_restarts_id_sequence_to_one(client):
+    """Dupa /reset, alocarea id-urilor porneste din nou de la 1."""
+    client.post("/reset")
+    c1 = client.post(
+        "/contacts",
+        json={"name": "A", "email": "a@ex.com", "phone": "0711111111", "category": "work"},
+    ).get_json()
+    c2 = client.post(
+        "/contacts",
+        json={"name": "B", "email": "b@ex.com", "phone": "0722222222", "category": "work"},
+    ).get_json()
+    assert c1["id"] == 1
+    assert c2["id"] == 2
+
+    # Reset
+    assert client.post("/reset").status_code == 204
+
+    # Urmatorul contact creat trebuie sa aiba din nou id 1
+    c3 = client.post(
+        "/contacts",
+        json={"name": "C", "email": "c@ex.com", "phone": "0733333333", "category": "work"},
+    ).get_json()
+    assert c3["id"] == 1
+
+
+def test_create_contact_malformed_json_syntax(client):
+    """Trimiterea unui JSON invalid sintactic este tratata cu 400 validation."""
+    response = client.post(
+        "/contacts",
+        data='{"name": "Ana", "email": "ana@example.com"',  # lipseste acolada de inchidere
+        content_type="application/json",
+    )
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["error"] == "validation"
+    assert "json" in body["message"].lower()
+
+
+
 
 
 
