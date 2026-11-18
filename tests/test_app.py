@@ -564,6 +564,68 @@ def test_create_contact_malformed_json_syntax(client):
     assert "json" in body["message"].lower()
 
 
+def test_admin_stats_unauthorized_without_credentials(client, monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret123")
+
+    response = client.get("/admin/stats")
+    assert response.status_code == 401
+    body = response.get_json()
+    assert body["error"] == "unauthorized"
+
+
+def test_admin_stats_unauthorized_with_wrong_credentials(client, monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret123")
+
+    import base64
+    wrong_token = base64.b64encode(b"admin:wrong_password").decode("ascii")
+    response = client.get(
+        "/admin/stats",
+        headers={"Authorization": f"Basic {wrong_token}"},
+    )
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
+
+
+def test_admin_stats_unauthorized_when_env_not_configured(client, monkeypatch):
+    monkeypatch.delenv("ADMIN_USER", raising=False)
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+
+    import base64
+    token = base64.b64encode(b"admin:secret123").decode("ascii")
+    response = client.get(
+        "/admin/stats",
+        headers={"Authorization": f"Basic {token}"},
+    )
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
+
+
+def test_admin_stats_authorized_success(client, monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret123")
+
+    client.post("/reset")
+    client.post(
+        "/contacts",
+        json={"name": "Ana", "email": "ana@example.com", "phone": "0711111111", "category": "work"},
+    )
+
+    import base64
+    valid_token = base64.b64encode(b"admin:secret123").decode("ascii")
+    response = client.get(
+        "/admin/stats",
+        headers={"Authorization": f"Basic {valid_token}"},
+    )
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["total"] == 1
+    assert body["by_category"]["work"] == 1
+    assert body["by_category"]["friends"] == 0
+
+
+
 
 
 

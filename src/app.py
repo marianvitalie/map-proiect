@@ -154,6 +154,22 @@ def get_stats():
     ), 200
 
 
+@app.get("/admin/stats")
+def admin_stats():
+    admin_user = os.getenv("ADMIN_USER")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+
+    # Credentialele nu au valori implicite. Daca lipsesc din mediu, refuzam accesul.
+    if not admin_user or not admin_password:
+        return jsonify(error="unauthorized", message="Admin authentication is not configured"), 401
+
+    auth = request.authorization
+    if not auth or auth.username != admin_user or auth.password != admin_password:
+        return jsonify(error="unauthorized", message="Invalid credentials"), 401
+
+    return get_stats()
+
+
 @app.get("/health")
 def health():
     return jsonify(

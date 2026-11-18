@@ -53,6 +53,7 @@ python -m pytest --cov=src
 | `/contacts/{id}` | GET | `200` | Returnează datele unui contact sau `404` |
 | `/contacts/{id}` | DELETE | `204` | Șterge contactul fără corp de răspuns, sau `404` dacă nu există |
 | `/stats` | GET | `200` | Numărul total de contacte și numărul pe fiecare categorie |
+| `/admin/stats` | GET | `200` / `401` | Rută administrativă protejată cu HTTP Basic Auth (`ADMIN_USER`, `ADMIN_PASSWORD`) |
 
 ## Contractul de date și erori
 
