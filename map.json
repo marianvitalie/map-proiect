@@ -6,5 +6,7 @@
   "email": "vitalie.marian@student.upt.ro",
   "tema": 1,
   "limbaj": "python",
-  "extensii": []
+  "extensii": [
+    "admin"
+  ]
 }
